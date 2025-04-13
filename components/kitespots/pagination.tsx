@@ -79,44 +79,50 @@ export function Pagination({ currentPage, totalPages }: PaginationProps) {
   if (totalPages <= 1) return null
 
   return (
-    <div className="flex justify-center items-center mt-8 gap-1">
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => goToPage(currentPage - 1)}
-        disabled={currentPage === 1}
-        aria-label="Previous page"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
+    <div className="flex justify-center items-center mt-12 mb-8">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2 flex items-center">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => goToPage(currentPage - 1)}
+          disabled={currentPage === 1}
+          aria-label="Previous page"
+          className="h-9 w-9 rounded-full"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
 
-      {pageNumbers.map((page, index) =>
-        page === "..." ? (
-          <span key={`ellipsis-${index}`} className="px-3 py-2 text-gray-500">
-            ...
-          </span>
-        ) : (
-          <Button
-            key={`page-${page}`}
-            variant={currentPage === page ? "default" : "outline"}
-            size="sm"
-            onClick={() => goToPage(Number(page))}
-            className={currentPage === page ? "bg-blue-600" : ""}
-          >
-            {page}
-          </Button>
-        ),
-      )}
+        <div className="flex items-center gap-1 mx-2">
+          {pageNumbers.map((page, index) =>
+            page === "..." ? (
+              <span key={`ellipsis-${index}`} className="px-3 py-2 text-gray-500">
+                ...
+              </span>
+            ) : (
+              <Button
+                key={`page-${page}`}
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => goToPage(Number(page))}
+                className={`rounded-full w-9 h-9 ${currentPage === page ? "bg-blue-600" : ""}`}
+              >
+                {page}
+              </Button>
+            ),
+          )}
+        </div>
 
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => goToPage(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        aria-label="Next page"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => goToPage(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          aria-label="Next page"
+          className="h-9 w-9 rounded-full"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   )
 }

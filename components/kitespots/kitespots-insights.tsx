@@ -84,17 +84,17 @@ export function KitespotsInsights() {
   }, [continent, country, month, difficulty, water_type])
 
   return (
-    <div className="bg-white py-8 -mt-16 relative z-10">
+    <div className="bg-white py-8 rounded-xl shadow-md border border-gray-100">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Total Kitespots Card */}
-          <div className="bg-white rounded-lg shadow-md p-6 flex items-center">
-            <div className="rounded-full bg-blue-100 p-3 mr-4">
-              <Wind className="h-6 w-6 text-blue-600" />
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          {/* Total Kitespots Card - now takes 4 columns instead of full width */}
+          <div className="md:col-span-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 flex items-center transform transition-transform hover:scale-105 duration-300">
+            <div className="rounded-full bg-blue-500 p-3 mr-4 text-white">
+              <Wind className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-gray-500 text-sm">Total Kitespots</p>
-              <h3 className="text-2xl font-semibold">{loading ? "Loading..." : `${stats.totalSpots}+`}</h3>
+              <p className="text-gray-500 text-sm font-medium uppercase tracking-wider">Total Kitespots</p>
+              <h3 className="text-2xl font-bold text-blue-700">{loading ? "Loading..." : `${stats.totalSpots}+`}</h3>
               <p className="text-sm text-gray-500">
                 {continent ? `in ${continent}` : "worldwide"}
                 {country ? `, ${country}` : ""}
@@ -102,10 +102,13 @@ export function KitespotsInsights() {
             </div>
           </div>
 
-          {/* Regional Wind Chart */}
-          <div className="bg-white rounded-lg shadow-md p-6 md:col-span-2">
+          {/* Regional Wind Chart - now takes 8 columns */}
+          <div className="md:col-span-8 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
             <div className="flex items-center mb-2">
-              <h3 className="text-lg font-medium">Regional Wind Statistics</h3>
+              <h3 className="text-lg font-semibold text-gray-800">Regional Wind Statistics</h3>
+              <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                {stats.avgWindSpeed} knots avg
+              </span>
             </div>
             <RegionalWindChart region={continent || country || "Global"} />
           </div>

@@ -1,16 +1,12 @@
 "use client"
 
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Filter, ChevronDown, Globe, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { createClient } from "@/lib/supabase/client"
 import { MonthPicker } from "@/components/ui/month-picker"
 import { Badge } from "@/components/ui/badge"
@@ -245,42 +241,54 @@ export function KitespotsFilters({
   ].filter(Boolean).length
 
   return (
-    <div className="mb-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+    <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div className="flex items-center">
-          <Filter className="mr-2 h-5 w-5 text-blue-600" />
-          <span className="text-gray-700 font-medium">Filters</span>
+          <div className="bg-blue-100 p-2 rounded-full mr-3">
+            <Filter className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
+            <div className="flex items-center mt-1">
+              {/* Total kitespots count badge */}
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                {totalKitespots} kitespots found
+              </Badge>
 
-          {/* Total kitespots count badge */}
-          <Badge variant="outline" className="ml-3 bg-blue-50 text-blue-700">
-            {totalKitespots} kitespots found
-          </Badge>
-
-          {/* Active filters count */}
-          {activeFilterCount > 0 && (
-            <Badge className="ml-2 bg-blue-600">
-              {activeFilterCount} active {activeFilterCount === 1 ? "filter" : "filters"}
-            </Badge>
-          )}
+              {/* Active filters count */}
+              {activeFilterCount > 0 && (
+                <Badge className="ml-2 bg-blue-600">
+                  {activeFilterCount} active {activeFilterCount === 1 ? "filter" : "filters"}
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {activeFilterCount > 0 && (
-            <Button variant="ghost" className="text-blue-600" onClick={() => router.push("/kitespots")}>
-              Clear All
+            <Button
+              variant="outline"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              onClick={() => router.push("/kitespots")}
+            >
+              Clear All Filters
             </Button>
           )}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
         {/* Month Picker for Best Month - Removed label, updated placeholder */}
         <MonthPicker month={selectedDate} onSelect={handleMonthChange} placeholder="Spots by best month" />
 
         {/* Continent Filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              className={`flex items-center gap-1 ${currentContinent ? "border-blue-300 bg-blue-50 text-blue-700" : ""}`}
+            >
               <Globe className="h-4 w-4 mr-1" />
               {currentContinent || "All Continents"}
               <ChevronDown className="h-4 w-4 ml-1" />
@@ -320,7 +328,10 @@ export function KitespotsFilters({
         {/* Countries Filter - Always show, but populate based on selected continent */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              className={`flex items-center gap-1 ${currentCountry ? "border-blue-300 bg-blue-50 text-blue-700" : ""}`}
+            >
               <MapPin className="h-4 w-4 mr-1" />
               {currentCountry || "All Countries"}
               <ChevronDown className="h-4 w-4 ml-1" />
@@ -362,7 +373,10 @@ export function KitespotsFilters({
         {/* Difficulty Filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              className={`flex items-center gap-1 ${currentDifficulty ? "border-blue-300 bg-blue-50 text-blue-700" : ""}`}
+            >
               {currentDifficulty || "Difficulty"}
               <ChevronDown className="h-4 w-4 ml-1" />
             </Button>
@@ -403,7 +417,10 @@ export function KitespotsFilters({
         {/* Water Type Filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              className={`flex items-center gap-1 ${currentWaterType ? "border-blue-300 bg-blue-50 text-blue-700" : ""}`}
+            >
               {currentWaterType || "Water Type"}
               <ChevronDown className="h-4 w-4 ml-1" />
             </Button>

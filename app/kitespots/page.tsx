@@ -7,6 +7,8 @@ import { KitespotsInsights } from "@/components/kitespots/kitespots-insights"
 import { Navbar } from "@/components/navbar"
 import { KitespotsAIRecommendations } from "@/components/kitespots/kitespots-ai-recommendations"
 import { getTotalKitespotsCount } from "@/lib/kitespots"
+import { StickyFilterSummary } from "@/components/kitespots/sticky-filter-summary"
+import { BackToTop } from "@/components/back-to-top"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 300 // Revalidate every 5 minutes
@@ -42,15 +44,32 @@ export default async function KitespotsPage({
   })
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Navbar />
       <KitespotsHeader />
-      <KitespotsInsights />
+      <StickyFilterSummary />
+
+      {/* Insights section with improved styling */}
+      <section className="relative z-10 -mt-16">
+        <div className="container mx-auto px-4">
+          <KitespotsInsights />
+        </div>
+      </section>
 
       <div className="container mx-auto px-4 py-8">
-        <KitespotsFilters continent={continent} country={country} month={month} totalKitespots={totalKitespots} />
+        {/* Filters and AI recommendations in a card for visual grouping */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <KitespotsFilters continent={continent} country={country} month={month} totalKitespots={totalKitespots} />
+          <div className="mt-6">
+            <KitespotsAIRecommendations />
+          </div>
+        </div>
 
-        <KitespotsAIRecommendations />
+        {/* Results section with improved heading */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">Discover Kitespots</h2>
+          <p className="text-gray-600">Browse our collection of the world's best kiteboarding destinations</p>
+        </div>
 
         <Suspense fallback={<KitespotsLoading />}>
           <KitespotsList
@@ -64,6 +83,9 @@ export default async function KitespotsPage({
           />
         </Suspense>
       </div>
+
+      {/* Back to top button */}
+      <BackToTop />
     </main>
   )
 }
