@@ -11,7 +11,7 @@ export type Kitespot = {
   difficulty: string
   water_type: string
   main_image_url?: string
-  best_months?: any
+  best_months?: string[] | null
   avg_wind_speed?: number
   predictability?: number[]
 }
@@ -29,7 +29,7 @@ type GetKitespotsParams = {
 
 export async function getKitespots({
   page = 1,
-  pageSize = 10,
+  pageSize = 12, // Increased from 10 to 12
   difficulty = "",
   continent = "",
   country = "",
@@ -44,8 +44,21 @@ export async function getKitespots({
   const to = from + pageSize - 1
 
   try {
+    console.log("Fetching kitespots with params:", {
+      page,
+      pageSize,
+      difficulty,
+      continent,
+      country,
+      water_type,
+      month,
+      date,
+    })
+
     // Start building the query using the materialized view
-    let query = supabase.from("kitespots_with_images").select("*", { count: "exact" })
+    let query = supabase
+      .from("kitespots_with_images")
+      .select("*, kitespot_images!inner(image_url, is_main)", { count: "exact" })
 
     // Add filters if provided
     if (difficulty) {
@@ -86,14 +99,8 @@ export async function getKitespots({
 
     // If month is provided, filter by best_months
     if (month) {
-      // For a real implementation, we would use a proper JSON query
-      // This is a placeholder for the actual implementation
-      console.log(`Month filtering for ${month} is applied (simulated)`)
-
-      // In a real implementation with the proper schema, we would use:
-      // query = query.contains('best_months', [month.toLowerCase()])
-      // or for a JSON structure:
-      // query = query.gte(`best_months->>${month.toLowerCase()}`, 0.7)
+      // Only include kitespots where best_months is not null and contains the selected month
+      query = query.not("best_months", "is", null).contains("best_months", [month])
     }
 
     // If date is provided, we would filter by predictability
@@ -103,20 +110,28 @@ export async function getKitespots({
       query = query.order("name")
     }
 
-    // Execute the query with pagination
-    const { data, error, count } = await query.range(from, to)
+    console.log("Executing Supabase query...")
 
-    if (error) {
-      console.error("Error fetching kitespots:", error)
-      throw error
+    // Execute the query with pagination
+    const response = await query.range(from, to)
+
+    // Check for errors in the response
+    if (response.error) {
+      console.error("Supabase error fetching kitespots:", response.error)
+      throw new Error(`Supabase error: ${response.error.message}`)
     }
 
-    // For demo purposes, generate mock data if no results or error
+    const { data, count } = response
+
+    console.log(`Query successful. Retrieved ${data?.length || 0} kitespots out of ${count || 0} total.`)
+
+    // If no data is returned, return empty results
     if (!data || data.length === 0) {
+      console.log("No kitespots found matching the criteria.")
       return {
-        kitespots: generateMockKitespots(5, month),
-        totalPages: 1,
-        totalCount: 5,
+        kitespots: [],
+        totalPages: 0,
+        totalCount: 0,
       }
     }
 
@@ -124,12 +139,30 @@ export async function getKitespots({
     const kitespotsWithPredictability = data.map((spot) => {
       const predictability = Array.from({ length: 7 }, () => Math.floor(Math.random() * 100))
 
-      if (date) {
-        const avgPredictability = predictability.reduce((a, b) => a + b, 0) / predictability.length
-        return { ...spot, predictability, avgPredictability }
+      // Extract main image URL from the joined kitespot_images
+      let mainImageUrl = null
+      if (spot.kitespot_images && Array.isArray(spot.kitespot_images)) {
+        const mainImage = spot.kitespot_images.find((img: any) => img.is_main === true)
+        if (mainImage) {
+          mainImageUrl = mainImage.image_url
+        }
       }
 
-      return { ...spot, predictability }
+      if (date) {
+        const avgPredictability = predictability.reduce((a, b) => a + b, 0) / predictability.length
+        return {
+          ...spot,
+          predictability,
+          avgPredictability,
+          main_image_url: mainImageUrl,
+        }
+      }
+
+      return {
+        ...spot,
+        predictability,
+        main_image_url: mainImageUrl,
+      }
     })
 
     // If date is provided, sort by average predictability
@@ -146,18 +179,98 @@ export async function getKitespots({
       totalCount: count || 0,
     }
   } catch (error) {
+    // Log detailed error information
     console.error("Error in getKitespots:", error)
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      params: { page, pageSize, difficulty, continent, country, water_type, month, date },
+    })
 
-    // Return mock data as fallback
-    return {
-      kitespots: generateMockKitespots(5, month),
-      totalPages: 1,
-      totalCount: 5,
-    }
+    // Re-throw the error to be handled by the component
+    throw error
   }
 }
 
-// Add a function to generate mock kitespots data with best months
+// Add function to get total count of kitespots
+export async function getTotalKitespotsCount({
+  difficulty = "",
+  continent = "",
+  country = "",
+  water_type = "",
+  month = "",
+}: {
+  difficulty?: string
+  continent?: string
+  country?: string
+  water_type?: string
+  month?: string
+}) {
+  const supabase = createClient()
+
+  try {
+    // Start building the query
+    let query = supabase.from("kitespots_with_images").select("id", { count: "exact" })
+
+    // Add filters if provided
+    if (difficulty) {
+      query = query.eq("difficulty", difficulty)
+    }
+
+    if (country) {
+      query = query.eq("country", country)
+    }
+
+    if (water_type) {
+      query = query.eq("water_type", water_type)
+    }
+
+    // If continent is provided, we need to join with countries table
+    if (continent) {
+      try {
+        // First, get the countries in the continent
+        const { data: countriesInContinent, error: countriesError } = await supabase
+          .from("countries")
+          .select("name")
+          .eq("continent", continent)
+
+        if (countriesError) {
+          console.error("Error fetching countries in continent:", countriesError)
+          throw countriesError
+        }
+
+        if (countriesInContinent && countriesInContinent.length > 0) {
+          const countryNames = countriesInContinent.map((c) => c.name)
+          query = query.in("country", countryNames)
+        }
+      } catch (error) {
+        console.error("Error processing continent filter:", error)
+        // Continue with the query without the continent filter
+      }
+    }
+
+    // If month is provided, filter by best_months
+    if (month) {
+      // Only include kitespots where best_months is not null and contains the selected month
+      query = query.not("best_months", "is", null).contains("best_months", [month])
+    }
+
+    // Execute the query
+    const { count, error } = await query
+
+    if (error) {
+      console.error("Error fetching kitespot count:", error)
+      return 0
+    }
+
+    return count || 0
+  } catch (error) {
+    console.error("Error in getTotalKitespotsCount:", error)
+    return 0
+  }
+}
+
+// Add the missing generateMockKitespots function if it doesn't exist
 function generateMockKitespots(count: number, selectedMonth?: string): Kitespot[] {
   const difficulties = ["Beginner", "Intermediate", "Advanced", "All Levels"]
   const waterTypes = ["Flat", "Choppy", "Waves", "Mixed"]
@@ -181,25 +294,34 @@ function generateMockKitespots(count: number, selectedMonth?: string): Kitespot[
       "December",
     ]
 
-    const result: Record<string, number> = {}
-
-    // If a preferred month is specified, make sure it's included with a high score
+    // If a preferred month is specified, make sure it's included
     if (preferredMonth) {
-      allMonths.forEach((month) => {
-        if (month === preferredMonth) {
-          result[month.toLowerCase()] = 0.8 + Math.random() * 0.2 // 0.8-1.0 score
-        } else {
-          result[month.toLowerCase()] = Math.random() * 0.7 // 0-0.7 score
-        }
-      })
-    } else {
-      // Random best months
-      allMonths.forEach((month) => {
-        result[month.toLowerCase()] = Math.random()
-      })
-    }
+      const result = [preferredMonth]
+      // Add 2-4 random additional months
+      const additionalMonthCount = Math.floor(Math.random() * 3) + 2
 
-    return result
+      for (let i = 0; i < additionalMonthCount; i++) {
+        const randomMonth = allMonths[Math.floor(Math.random() * allMonths.length)]
+        if (!result.includes(randomMonth)) {
+          result.push(randomMonth)
+        }
+      }
+
+      return result
+    } else {
+      // Random 3-5 best months
+      const result = []
+      const monthCount = Math.floor(Math.random() * 3) + 3
+
+      for (let i = 0; i < monthCount; i++) {
+        const randomMonth = allMonths[Math.floor(Math.random() * allMonths.length)]
+        if (!result.includes(randomMonth)) {
+          result.push(randomMonth)
+        }
+      }
+
+      return result
+    }
   }
 
   return Array.from({ length: count }, (_, i) => {
@@ -224,10 +346,13 @@ function generateMockKitespots(count: number, selectedMonth?: string): Kitespot[
   })
 }
 
+// Rest of the file remains the same...
 export async function getKitespotById(id: string) {
   const supabase = createClient()
 
   try {
+    console.log(`Fetching kitespot details for ID: ${id}`)
+
     const { data, error } = await supabase
       .from("kitespots")
       .select(`
@@ -245,16 +370,25 @@ export async function getKitespotById(id: string) {
       .single()
 
     if (error) {
-      console.error("Error fetching kitespot:", error)
-      throw new Error("Failed to fetch kitespot")
+      console.error(`Error fetching kitespot with ID ${id}:`, error)
+      throw new Error(`Failed to fetch kitespot: ${error.message}`)
     }
 
+    if (!data) {
+      console.error(`No kitespot found with ID ${id}`)
+      throw new Error("Kitespot not found")
+    }
+
+    console.log(`Successfully retrieved kitespot with ID ${id}`)
     return data
   } catch (error) {
     console.error("Error in getKitespotById:", error)
-
-    // Return mock data as fallback
-    return generateMockKitespotDetail(id)
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      id,
+    })
+    throw error
   }
 }
 
@@ -265,20 +399,7 @@ function generateMockKitespotDetail(id: string) {
   const countries = ["Spain", "Greece", "Brazil", "Morocco", "Dominican Republic"]
   const locations = ["Costa Calma", "Tarifa", "Jericoacoara", "Essaouira", "Cabarete"]
 
-  const bestMonths = {
-    january: Math.random(),
-    february: Math.random(),
-    march: Math.random(),
-    april: Math.random(),
-    may: Math.random(),
-    june: Math.random(),
-    july: Math.random(),
-    august: Math.random(),
-    september: Math.random(),
-    october: Math.random(),
-    november: Math.random(),
-    december: Math.random(),
-  }
+  const bestMonths = ["April", "May", "June", "July", "August", "September"]
 
   return {
     id,
@@ -338,6 +459,8 @@ export async function getKitespotWindStats(spotId: string) {
   const supabase = createClient()
 
   try {
+    console.log(`Fetching wind stats for kitespot ID: ${spotId}`)
+
     const { data, error } = await supabase
       .from("forecast_data")
       .select("wind_speed")
@@ -346,20 +469,29 @@ export async function getKitespotWindStats(spotId: string) {
       .limit(100)
 
     if (error) {
-      console.error("Error fetching wind stats:", error)
+      console.error(`Error fetching wind stats for kitespot ID ${spotId}:`, error)
       return { avgWindSpeed: 0 }
     }
 
     if (!data || data.length === 0) {
+      console.log(`No wind data found for kitespot ID ${spotId}`)
       return { avgWindSpeed: 0 }
     }
 
     const sum = data.reduce((acc, curr) => acc + (curr.wind_speed || 0), 0)
     const avgWindSpeed = sum / data.length
 
+    console.log(
+      `Successfully calculated average wind speed for kitespot ID ${spotId}: ${avgWindSpeed.toFixed(1)} knots`,
+    )
     return { avgWindSpeed: Number.parseFloat(avgWindSpeed.toFixed(1)) }
   } catch (error) {
-    console.error("Error in getKitespotWindStats:", error)
-    return { avgWindSpeed: Math.floor(Math.random() * 10) + 15 }
+    console.error(`Error in getKitespotWindStats for kitespot ID ${spotId}:`, error)
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      spotId,
+    })
+    return { avgWindSpeed: 0 }
   }
 }

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { createClient } from "@/lib/supabase/client"
 import { MonthPicker } from "@/components/ui/month-picker"
+import { Badge } from "@/components/ui/badge"
 
 const difficulties = ["Beginner", "Intermediate", "Advanced", "All Levels"]
 const waterTypes = ["Flat", "Choppy", "Waves", "Mixed"]
@@ -21,15 +22,19 @@ export function KitespotsFilters({
   continent = "",
   country = "",
   month = "",
+  totalKitespots = 0,
 }: {
   continent?: string
   country?: string
   month?: string
+  totalKitespots?: number
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [continents, setContinents] = useState<string[]>([])
-  const [countries, setCountries] = useState<string[]>([])
+  const [continents, setContinents] = useState<Array<{ name: string; count: number }>>([])
+  const [countries, setCountries] = useState<Array<{ name: string; count: number }>>([])
+  const [difficultyCounts, setDifficultyCounts] = useState<Record<string, number>>({})
+  const [waterTypeCounts, setWaterTypeCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 
@@ -54,42 +59,143 @@ export function KitespotsFilters({
     }
   }, [currentMonth])
 
-  // Fetch continents and countries
+  // Fetch continents and countries with counts
   useEffect(() => {
     async function fetchFilters() {
       setLoading(true)
       const supabase = createClient()
 
-      // Fetch distinct continents from the continents table
-      const { data: continentData, error: continentError } = await supabase
-        .from("continents")
-        .select("name")
-        .order("name")
+      try {
+        // Fetch continents with counts
+        const { data: continentData, error: continentError } = await supabase
+          .from("continents")
+          .select("name")
+          .order("name")
 
-      if (continentError) {
-        console.error("Error fetching continents:", continentError)
+        if (continentError) {
+          console.error("Error fetching continents:", continentError)
+        }
+
+        // Fetch countries based on selected continent
+        let countryQuery = supabase.from("countries").select("name").order("name")
+
+        if (currentContinent) {
+          countryQuery = countryQuery.eq("continent", currentContinent)
+        }
+
+        const { data: countryData, error: countryError } = await countryQuery
+
+        if (countryError) {
+          console.error("Error fetching countries:", countryError)
+        }
+
+        // Get kitespot counts for each continent
+        const continentCounts: Record<string, number> = {}
+        if (continentData) {
+          for (const continent of continentData) {
+            const {
+              data: kitespots,
+              error,
+              count,
+            } = await supabase
+              .from("kitespots_with_images")
+              .select("id", { count: "exact" })
+              .in("country", countryData?.filter((c) => c.continent === continent.name).map((c) => c.name) || [])
+
+            if (error) {
+              console.error(`Error fetching kitespots for continent ${continent.name}:`, error)
+            } else {
+              continentCounts[continent.name] = count || 0
+            }
+          }
+        }
+
+        // Get kitespot counts for each country
+        const countryCounts: Record<string, number> = {}
+        if (countryData) {
+          for (const country of countryData) {
+            const {
+              data: kitespots,
+              error,
+              count,
+            } = await supabase
+              .from("kitespots_with_images")
+              .select("id", { count: "exact" })
+              .eq("country", country.name)
+
+            if (error) {
+              console.error(`Error fetching kitespots for country ${country.name}:`, error)
+            } else {
+              countryCounts[country.name] = count || 0
+            }
+          }
+        }
+
+        // Fetch difficulty counts
+        const { data: difficultyData, error: difficultyError } = await supabase
+          .from("kitespots_with_images")
+          .select("difficulty")
+          .not("difficulty", "is", null)
+
+        if (difficultyError) {
+          console.error("Error fetching difficulty counts:", difficultyError)
+        }
+
+        // Fetch water type counts
+        const { data: waterTypeData, error: waterTypeError } = await supabase
+          .from("kitespots_with_images")
+          .select("water_type")
+          .not("water_type", "is", null)
+
+        if (waterTypeError) {
+          console.error("Error fetching water type counts:", waterTypeError)
+        }
+
+        // Process the data
+        const processedContinents = continentData
+          ? continentData.map((continent) => ({
+              name: continent.name,
+              count: continentCounts[continent.name] || 0,
+            }))
+          : []
+
+        const processedCountries = countryData
+          ? countryData.map((country) => ({
+              name: country.name,
+              count: countryCounts[country.name] || 0,
+            }))
+          : []
+
+        setContinents(processedContinents)
+        setCountries(processedCountries)
+
+        // Count difficulties
+        const difficultyCountsObj: Record<string, number> = {}
+        if (difficultyData) {
+          difficultyData.forEach((item) => {
+            if (item.difficulty) {
+              difficultyCountsObj[item.difficulty] = (difficultyCountsObj[item.difficulty] || 0) + 1
+            }
+          })
+        }
+        setDifficultyCounts(difficultyCountsObj)
+
+        // Count water types
+        const waterTypeCountsObj: Record<string, number> = {}
+        if (waterTypeData) {
+          waterTypeData.forEach((item) => {
+            if (item.water_type) {
+              waterTypeCountsObj[item.water_type] = (waterTypeCountsObj[item.water_type] || 0) + 1
+            }
+          })
+        }
+        setWaterTypeCounts(waterTypeCountsObj)
+
+        setLoading(false)
+      } catch (error) {
+        console.error("Error in fetchFilters:", error)
+        setLoading(false)
       }
-
-      // Fetch countries based on selected continent
-      let countryQuery = supabase.from("countries").select("name").order("name").is("name", "not", null)
-
-      if (currentContinent) {
-        countryQuery = countryQuery.eq("continent", currentContinent)
-      }
-
-      const { data: countryData, error: countryError } = await countryQuery
-
-      if (countryError) {
-        console.error("Error fetching countries:", countryError)
-      }
-
-      // Extract unique values
-      const uniqueContinents = continentData?.map((item) => item.name) || []
-      const uniqueCountries = Array.from(new Set(countryData?.map((item) => item.name) || []))
-
-      setContinents(uniqueContinents as string[])
-      setCountries(uniqueCountries as string[])
-      setLoading(false)
     }
 
     fetchFilters()
@@ -128,21 +234,38 @@ export function KitespotsFilters({
     router.push(`/kitespots?${params.toString()}`)
   }
 
+  // Count active filters
+  const activeFilterCount = [
+    currentDifficulty,
+    currentWaterType,
+    currentContinent,
+    currentCountry,
+    currentMonth,
+    currentDate,
+  ].filter(Boolean).length
+
   return (
     <div className="mb-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
         <div className="flex items-center">
           <Filter className="mr-2 h-5 w-5 text-blue-600" />
           <span className="text-gray-700 font-medium">Filters</span>
+
+          {/* Total kitespots count badge */}
+          <Badge variant="outline" className="ml-3 bg-blue-50 text-blue-700">
+            {totalKitespots} kitespots found
+          </Badge>
+
+          {/* Active filters count */}
+          {activeFilterCount > 0 && (
+            <Badge className="ml-2 bg-blue-600">
+              {activeFilterCount} active {activeFilterCount === 1 ? "filter" : "filters"}
+            </Badge>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {(currentDifficulty ||
-            currentWaterType ||
-            currentContinent ||
-            currentCountry ||
-            currentMonth ||
-            currentDate) && (
+          {activeFilterCount > 0 && (
             <Button variant="ghost" className="text-blue-600" onClick={() => router.push("/kitespots")}>
               Clear All
             </Button>
@@ -163,7 +286,7 @@ export function KitespotsFilters({
               <ChevronDown className="h-4 w-4 ml-1" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuContent align="start" className="w-64">
             <DropdownMenuGroup>
               <DropdownMenuItem
                 className={!currentContinent ? "bg-blue-50" : ""}
@@ -171,17 +294,23 @@ export function KitespotsFilters({
                   router.push(`/kitespots?${createQueryString("continent", "")}`)
                 }}
               >
-                All Continents
+                <span className="flex justify-between w-full">
+                  <span>All Continents</span>
+                  <span className="text-gray-500">{totalKitespots}</span>
+                </span>
               </DropdownMenuItem>
               {continents.map((cont) => (
                 <DropdownMenuItem
-                  key={cont}
-                  className={currentContinent === cont ? "bg-blue-50" : ""}
+                  key={cont.name}
+                  className={currentContinent === cont.name ? "bg-blue-50" : ""}
                   onClick={() => {
-                    router.push(`/kitespots?${createQueryString("continent", cont)}`)
+                    router.push(`/kitespots?${createQueryString("continent", cont.name)}`)
                   }}
                 >
-                  {cont}
+                  <span className="flex justify-between w-full">
+                    <span>{cont.name}</span>
+                    <span className="text-gray-500">{cont.count}</span>
+                  </span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
@@ -197,7 +326,7 @@ export function KitespotsFilters({
               <ChevronDown className="h-4 w-4 ml-1" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48 max-h-[300px] overflow-y-auto">
+          <DropdownMenuContent align="start" className="w-64 max-h-[300px] overflow-y-auto">
             <DropdownMenuGroup>
               <DropdownMenuItem
                 className={!currentCountry ? "bg-blue-50" : ""}
@@ -205,17 +334,25 @@ export function KitespotsFilters({
                   router.push(`/kitespots?${createQueryString("country", "")}`)
                 }}
               >
-                All Countries
+                <span className="flex justify-between w-full">
+                  <span>All Countries</span>
+                  <span className="text-gray-500">
+                    {currentContinent ? countries.reduce((sum, country) => sum + country.count, 0) : totalKitespots}
+                  </span>
+                </span>
               </DropdownMenuItem>
               {countries.map((country) => (
                 <DropdownMenuItem
-                  key={country}
-                  className={currentCountry === country ? "bg-blue-50" : ""}
+                  key={country.name}
+                  className={currentCountry === country.name ? "bg-blue-50" : ""}
                   onClick={() => {
-                    router.push(`/kitespots?${createQueryString("country", country)}`)
+                    router.push(`/kitespots?${createQueryString("country", country.name)}`)
                   }}
                 >
-                  {country}
+                  <span className="flex justify-between w-full">
+                    <span>{country.name}</span>
+                    <span className="text-gray-500">{country.count}</span>
+                  </span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
@@ -230,7 +367,7 @@ export function KitespotsFilters({
               <ChevronDown className="h-4 w-4 ml-1" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuContent align="start" className="w-64">
             <DropdownMenuGroup>
               <DropdownMenuItem
                 className={!currentDifficulty ? "bg-blue-50" : ""}
@@ -238,7 +375,10 @@ export function KitespotsFilters({
                   router.push(`/kitespots?${createQueryString("difficulty", "")}`)
                 }}
               >
-                All Levels
+                <span className="flex justify-between w-full">
+                  <span>All Levels</span>
+                  <span className="text-gray-500">{totalKitespots}</span>
+                </span>
               </DropdownMenuItem>
               {difficulties
                 .filter((d) => d !== "All Levels")
@@ -250,7 +390,10 @@ export function KitespotsFilters({
                       router.push(`/kitespots?${createQueryString("difficulty", difficulty)}`)
                     }}
                   >
-                    {difficulty}
+                    <span className="flex justify-between w-full">
+                      <span>{difficulty}</span>
+                      <span className="text-gray-500">{difficultyCounts[difficulty] || 0}</span>
+                    </span>
                   </DropdownMenuItem>
                 ))}
             </DropdownMenuGroup>
@@ -265,7 +408,7 @@ export function KitespotsFilters({
               <ChevronDown className="h-4 w-4 ml-1" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuContent align="start" className="w-64">
             <DropdownMenuGroup>
               <DropdownMenuItem
                 className={!currentWaterType ? "bg-blue-50" : ""}
@@ -273,7 +416,10 @@ export function KitespotsFilters({
                   router.push(`/kitespots?${createQueryString("water_type", "")}`)
                 }}
               >
-                All Types
+                <span className="flex justify-between w-full">
+                  <span>All Types</span>
+                  <span className="text-gray-500">{totalKitespots}</span>
+                </span>
               </DropdownMenuItem>
               {waterTypes.map((type) => (
                 <DropdownMenuItem
@@ -283,7 +429,10 @@ export function KitespotsFilters({
                     router.push(`/kitespots?${createQueryString("water_type", type)}`)
                   }}
                 >
-                  {type}
+                  <span className="flex justify-between w-full">
+                    <span>{type}</span>
+                    <span className="text-gray-500">{waterTypeCounts[type] || 0}</span>
+                  </span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>

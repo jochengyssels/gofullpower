@@ -6,11 +6,12 @@ import { KitespotsLoading } from "@/components/kitespots/kitespots-loading"
 import { KitespotsInsights } from "@/components/kitespots/kitespots-insights"
 import { Navbar } from "@/components/navbar"
 import { KitespotsAIRecommendations } from "@/components/kitespots/kitespots-ai-recommendations"
+import { getTotalKitespotsCount } from "@/lib/kitespots"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 300 // Revalidate every 5 minutes
 
-export default function KitespotsPage({
+export default async function KitespotsPage({
   searchParams,
 }: {
   searchParams: {
@@ -31,6 +32,15 @@ export default function KitespotsPage({
   const month = searchParams.month || ""
   const date = searchParams.date || ""
 
+  // Get total count of kitespots for the filters display
+  const totalKitespots = await getTotalKitespotsCount({
+    difficulty,
+    continent,
+    country,
+    water_type,
+    month,
+  })
+
   return (
     <main className="min-h-screen bg-white">
       <Navbar />
@@ -38,7 +48,7 @@ export default function KitespotsPage({
       <KitespotsInsights />
 
       <div className="container mx-auto px-4 py-8">
-        <KitespotsFilters continent={continent} country={country} month={month} />
+        <KitespotsFilters continent={continent} country={country} month={month} totalKitespots={totalKitespots} />
 
         <KitespotsAIRecommendations />
 

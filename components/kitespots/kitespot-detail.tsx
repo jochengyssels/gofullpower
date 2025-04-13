@@ -22,48 +22,20 @@ export function KitespotDetail({ kitespot }: KitespotDetailProps) {
   // Generate a random rating between 4.0 and 5.0 for demo purposes
   const rating = (Math.random() * 1.0 + 4.0).toFixed(1)
 
-  // Get best months from JSON or generate random ones
+  // Get best months from array or handle null case
   const getBestMonths = () => {
-    if (kitespot.best_months && typeof kitespot.best_months === "object") {
+    if (kitespot.best_months && Array.isArray(kitespot.best_months)) {
       try {
-        // Try to extract months with high scores
-        const months = Object.entries(kitespot.best_months)
-          .filter(([_, score]) => (score as number) > 0.7)
-          .map(([month]) => month)
-
-        if (months.length > 0) {
-          return months.join(", ")
-        }
+        // If best_months is an array of month names, join them
+        return kitespot.best_months.join(", ")
       } catch (e) {
-        // Fallback to random months
+        // Fallback to "Not specified"
+        return "Not specified"
       }
     }
 
-    // Fallback: random months
-    const allMonths = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ]
-    const randomMonths = []
-    const numMonths = Math.floor(Math.random() * 3) + 1
-
-    for (let i = 0; i < numMonths; i++) {
-      const randomIndex = Math.floor(Math.random() * allMonths.length)
-      randomMonths.push(allMonths[randomIndex])
-      allMonths.splice(randomIndex, 1)
-    }
-
-    return randomMonths.join(", ")
+    // If best_months is null or not an array
+    return "Not specified"
   }
 
   const bestMonths = getBestMonths()
@@ -103,7 +75,7 @@ export function KitespotDetail({ kitespot }: KitespotDetailProps) {
               <div className="flex items-center">
                 <MapPin className="h-5 w-5 mr-1" />
                 <span>
-                  {kitespot.location}, {kitespot.country}
+                  {kitespot.location || ""}, {kitespot.country}
                 </span>
               </div>
               <div className="flex items-center">
@@ -142,8 +114,8 @@ export function KitespotDetail({ kitespot }: KitespotDetailProps) {
               <p className="text-gray-700 mb-6">
                 {kitespot.description ||
                   `${kitespot.name} is a popular kiteboarding destination known for its consistent wind conditions and beautiful surroundings. 
-                  Located in ${kitespot.location}, ${kitespot.country}, this spot offers excellent conditions for kitesurfers of all levels.
-                  The spot is characterized by ${kitespot.water_type?.toLowerCase() || "mixed"} water conditions and is particularly good during ${bestMonths}.`}
+                  Located in ${kitespot.location || ""}, ${kitespot.country}, this spot offers excellent conditions for kitesurfers of all levels.
+                  The spot is characterized by ${kitespot.water_type?.toLowerCase() || "mixed"} water conditions.`}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -210,7 +182,7 @@ export function KitespotDetail({ kitespot }: KitespotDetailProps) {
                 <KitespotMap latitude={kitespot.latitude} longitude={kitespot.longitude} name={kitespot.name} />
               </div>
               <p className="text-sm text-gray-600">
-                {kitespot.location}, {kitespot.country}
+                {kitespot.location || ""}, {kitespot.country}
               </p>
             </div>
 
