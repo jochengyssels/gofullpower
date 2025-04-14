@@ -8,7 +8,7 @@ import { Filter, ChevronDown, Globe, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { createClient } from "@/lib/supabase/client"
-import { MonthPicker } from "@/components/ui/month-picker"
+import { MonthPicker } from "@/components/ui/monthpicker"
 import { Badge } from "@/components/ui/badge"
 
 const difficulties = ["Beginner", "Intermediate", "Advanced", "All Levels"]
